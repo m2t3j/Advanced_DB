@@ -15,6 +15,14 @@ if "sql_input" not in st.session_state:
 if "parent_ids" not in st.session_state:
     st.session_state["parent_ids"] = []
 
+# NEW: persist last query result across reruns so we can refresh UI and still show it
+if "last_result_rows" not in st.session_state:
+    st.session_state["last_result_rows"] = None
+if "last_result_cols" not in st.session_state:
+    st.session_state["last_result_cols"] = None
+if "last_result_qid" not in st.session_state:
+    st.session_state["last_result_qid"] = None
+
 # Try to fetch history to check DB connection
 try:
     history = qle.get_query_history(limit=50)
@@ -167,7 +175,7 @@ with right_col:
         )
         st.session_state["sql_input"] = sql_input  # keep in sync
 
-        # Run query button (NO rerun here so results stay visible)
+        # Run query button — now triggers rerun and stores results
         if st.button("Run query"):
             if not sql_input.strip():
                 st.warning("Please enter SQL.")
@@ -181,14 +189,34 @@ with right_col:
 
                     if err:
                         st.error(f"Query Q{qid} failed: {err}")
+                        # Clear last result on failure
+                        st.session_state["last_result_rows"] = None
+                        st.session_state["last_result_cols"] = None
+                        st.session_state["last_result_qid"] = None
                     else:
                         st.success(f"Query Q{qid} succeeded.")
-                        if rows:
-                            st.markdown("**Results**")
-                            df_res = pd.DataFrame(rows, columns=cols)
-                            st.dataframe(df_res.head(50), use_container_width=True)
+                        # Save results to session so we can show them after rerun
+                        st.session_state["last_result_rows"] = rows
+                        st.session_state["last_result_cols"] = cols
+                        st.session_state["last_result_qid"] = qid
+
+                    # Force a rerun so history + graph refresh
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Error executing query: {e}")
+
+        # Show last query result (if any) after rerun
+        if st.session_state["last_result_qid"] is not None and st.session_state[
+            "last_result_rows"
+        ] is not None:
+            st.markdown(
+                f"**Results for Query Q{st.session_state['last_result_qid']}**"
+            )
+            df_res = pd.DataFrame(
+                st.session_state["last_result_rows"],
+                columns=st.session_state["last_result_cols"],
+            )
+            st.dataframe(df_res.head(50), use_container_width=True)
 
         st.markdown("---")
         st.subheader("Pinned Views")
@@ -249,6 +277,9 @@ with right_col:
                 qle.clear_history()
                 st.session_state["sql_input"] = ""
                 st.session_state["parent_ids"] = []
+                st.session_state["last_result_rows"] = None
+                st.session_state["last_result_cols"] = None
+                st.session_state["last_result_qid"] = None
                 st.success(
                     "Cleared all query history, lineage, and pinned views. "
                     "Note: underlying IMDB tables are untouched."
