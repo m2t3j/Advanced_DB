@@ -15,7 +15,7 @@ if "sql_input" not in st.session_state:
 if "parent_ids" not in st.session_state:
     st.session_state["parent_ids"] = []
 
-# NEW: persist last query result across reruns so we can refresh UI and still show it
+# Persist last query result across reruns
 if "last_result_rows" not in st.session_state:
     st.session_state["last_result_rows"] = None
 if "last_result_cols" not in st.session_state:
@@ -33,7 +33,7 @@ except Exception as e:
 
 left_col, center_col, right_col = st.columns([2, 3, 3])
 
-# ---------------- LEFT: Query History ----------------
+# LEFT: Query History 
 with left_col:
     st.subheader("Query History")
 
@@ -96,6 +96,24 @@ with right_col:
     if db_error:
         st.error("Cannot show query details: database connection failed.")
     else:
+        # ----- Always show the last run result near the top -----
+        if (
+            st.session_state["last_result_qid"] is not None
+            and st.session_state["last_result_rows"] is not None
+        ):
+            st.markdown(
+                f"**Results for last run query Q{st.session_state['last_result_qid']}**"
+            )
+            df_last = pd.DataFrame(
+                st.session_state["last_result_rows"],
+                columns=st.session_state["last_result_cols"],
+            )
+            st.dataframe(df_last.head(50), use_container_width=True)
+        else:
+            st.caption("Run a query to see results here.")
+
+        st.markdown("---")
+
         # ----- Selected query details -----
         if history and selected_id is not None:
             q_details, tables, pinned = qle.get_query_details(selected_id)
@@ -175,7 +193,7 @@ with right_col:
         )
         st.session_state["sql_input"] = sql_input  # keep in sync
 
-        # Run query button — now triggers rerun and stores results
+        # Run query button — store results and rerun so history/graph refresh
         if st.button("Run query"):
             if not sql_input.strip():
                 st.warning("Please enter SQL.")
@@ -195,28 +213,15 @@ with right_col:
                         st.session_state["last_result_qid"] = None
                     else:
                         st.success(f"Query Q{qid} succeeded.")
-                        # Save results to session so we can show them after rerun
+                        # Save results so they persist across reruns
                         st.session_state["last_result_rows"] = rows
                         st.session_state["last_result_cols"] = cols
                         st.session_state["last_result_qid"] = qid
 
-                    # Force a rerun so history + graph refresh
+                    # Refresh UI (history + graph) while keeping last_result_*
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error executing query: {e}")
-
-        # Show last query result (if any) after rerun
-        if st.session_state["last_result_qid"] is not None and st.session_state[
-            "last_result_rows"
-        ] is not None:
-            st.markdown(
-                f"**Results for Query Q{st.session_state['last_result_qid']}**"
-            )
-            df_res = pd.DataFrame(
-                st.session_state["last_result_rows"],
-                columns=st.session_state["last_result_cols"],
-            )
-            st.dataframe(df_res.head(50), use_container_width=True)
 
         st.markdown("---")
         st.subheader("Pinned Views")
@@ -271,7 +276,7 @@ with right_col:
         st.markdown("---")
         st.subheader("Maintenance")
 
-        # ⚠ Clear ALL history button
+        # Clear ALL history button
         if st.button("⚠ Clear ALL QLE history (irreversible)"):
             try:
                 qle.clear_history()
