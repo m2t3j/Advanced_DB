@@ -48,7 +48,7 @@ You can:
 
 ## How to Use QLE
 
-### This was built on my own personal PSQL server and database. The database configuration can be changed by editing this line of code in app.py: DSN = "dbname=imdb user=postgres password=uromastyx host=localhost port=5432"
+####  NOTE: This was built on my own personal PSQL server and database. The database configuration can be changed by editing this line of code in app.py: DSN = "dbname=imdb user=postgres password=uromastyx host=localhost port=5432"
 
 
 ### 1. **Run SQL Queries**
@@ -109,7 +109,7 @@ The lineage graph updates automatically.
 If you want a totally fresh start:
 
 - Scroll to **Maintenance**
-- Click **⚠ Clear ALL QLE history (irreversible)**
+- Click **Clear ALL QLE history (irreversible)**
 
 This deletes:
 - All logged queries  
